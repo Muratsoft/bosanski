@@ -159,6 +159,11 @@ select {
   padding: 0.7rem 1.15rem;
   cursor: pointer;
   transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  /* grid/flex içinde komşu alan kadar şişmesin */
+  align-self: start;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 0;
 }
 
 .btn:hover {
@@ -271,6 +276,7 @@ select {
 .grid-2 {
   display: grid;
   gap: 1rem;
+  align-items: start;
 }
 
 @media (min-width: 800px) {
@@ -282,6 +288,12 @@ select {
 .stack {
   display: grid;
   gap: 0.85rem;
+  align-content: start;
+  align-items: stretch;
+}
+
+.stack > .btn {
+  justify-self: start;
 }
 
 .field {
