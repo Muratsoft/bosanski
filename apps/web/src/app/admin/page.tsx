@@ -223,9 +223,10 @@ export default function AdminPage() {
 
   return (
     <>
-      <h1 className="section-title">Admin</h1>
+      <h1 className="section-title">Öğretmen paneli</h1>
       <p className="section-lead">
-        Kullanıcı onayı, sözlük ve ders içerik yönetimi.
+        Grup, ödev, takvim, materyal ve üye yönetimi. Öğrenci sayfaları bu
+        hesapta menüde çıkmaz.
       </p>
 
       {message && (

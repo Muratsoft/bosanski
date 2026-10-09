@@ -6,12 +6,12 @@ import { useAuth } from "@/lib/auth";
 import { api, type MemberDashboard } from "@/lib/api";
 
 export function MemberAlerts() {
-  const { accessToken, user } = useAuth();
+  const { accessToken, user, isStaff } = useAuth();
   const [dash, setDash] = useState<MemberDashboard | null>(null);
   const [open, setOpen] = useState(true);
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!accessToken || isStaff) {
       setDash(null);
       return;
     }
@@ -19,9 +19,9 @@ export function MemberAlerts() {
       .meDashboard(accessToken)
       .then(setDash)
       .catch(() => undefined);
-  }, [accessToken]);
+  }, [accessToken, isStaff]);
 
-  if (!user || !dash?.alerts) return null;
+  if (!user || isStaff || !dash?.alerts) return null;
 
   const { nextLesson, pendingHomeworkCount, pendingHomeworks } = dash.alerts;
   if (!nextLesson && pendingHomeworkCount === 0) return null;

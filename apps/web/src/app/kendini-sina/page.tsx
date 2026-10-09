@@ -1,16 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { api, type QuizQuestion } from "@/lib/api";
+import { StudentOnly } from "@/components/StudentOnly";
 
 type Q = Omit<QuizQuestion, "answer"> & { answer?: string };
 
 export default function SelfTestPage() {
-  const { user, accessToken, loading } = useAuth();
-  const router = useRouter();
+  return (
+    <StudentOnly>
+      <SelfTestInner />
+    </StudentOnly>
+  );
+}
+
+function SelfTestInner() {
+  const { accessToken } = useAuth();
   const [level, setLevel] = useState("A1");
   const [questions, setQuestions] = useState<Q[]>([]);
   const [answerKey, setAnswerKey] = useState<Record<string, string>>({});
@@ -26,10 +33,6 @@ export default function SelfTestPage() {
     summary: string;
   } | null>(null);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!loading && !user) router.replace("/giris");
-  }, [loading, user, router]);
 
   async function start() {
     if (!accessToken) return;
@@ -84,8 +87,6 @@ export default function SelfTestPage() {
       }
     }, 500);
   }
-
-  if (loading || !user) return <p className="muted">Yükleniyor…</p>;
 
   const q = questions[idx];
 

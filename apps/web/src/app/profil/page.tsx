@@ -2,19 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { api, type MemberDashboard } from "@/lib/api";
+import { StudentOnly } from "@/components/StudentOnly";
 
 export default function ProfilePage() {
-  const { user, accessToken, loading } = useAuth();
-  const router = useRouter();
+  const { accessToken } = useAuth();
   const [dash, setDash] = useState<MemberDashboard | null>(null);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!loading && !user) router.replace("/giris");
-  }, [loading, user, router]);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -26,7 +21,22 @@ export default function ProfilePage() {
       );
   }, [accessToken]);
 
-  if (loading || !user) return <p className="muted">Yükleniyor…</p>;
+  return (
+    <StudentOnly>
+      <ProfileInner dash={dash} error={error} />
+    </StudentOnly>
+  );
+}
+
+function ProfileInner({
+  dash,
+  error,
+}: {
+  dash: MemberDashboard | null;
+  error: string;
+}) {
+  const { user } = useAuth();
+  if (!user) return null;
 
   return (
     <>
@@ -132,3 +142,4 @@ export default function ProfilePage() {
     </>
   );
 }
+
