@@ -1,11 +1,19 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { api, type DictionaryEntry } from "@/lib/api";
 import { variantLabel } from "@/lib/labels";
 
 export default function DictionaryPage() {
+  return (
+    <Suspense fallback={<p className="muted">Yükleniyor…</p>}>
+      <DictionaryInner />
+    </Suspense>
+  );
+}
+
+function DictionaryInner() {
   const params = useSearchParams();
   const initialQ = params.get("q") || "";
   const [q, setQ] = useState(initialQ);
@@ -34,8 +42,6 @@ export default function DictionaryPage() {
 
   useEffect(() => {
     void load(initialQ);
-    // Şeritten gelen ?q= ile bir kez aç
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQ]);
 
   async function onSubmit(e: FormEvent) {
