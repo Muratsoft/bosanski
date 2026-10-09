@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bosanski-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bosanski
+      POSTGRES_PASSWORD: bosanski
+      POSTGRES_DB: bosanski
+    ports:
+      - "5432:5432"
+    volumes:
+      - bosanski_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bosanski -d bosanski"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  bosanski_pg:

@@ -1,0 +1,475 @@
+"use client";
+
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth";
+import { api, type Category, type PendingPayment, type SafeUser } from "@/lib/api";
+
+type ReportItem = Awaited<ReturnType<typeof api.forumReports>>[number];
+
+export default function AdminPage() {
+  const { user, accessToken, isStaff, loading } = useAuth();
+  const router = useRouter();
+  const [stats, setStats] = useState<{
+    total: number;
+    pending: number;
+    active: number;
+    suspended: number;
+  } | null>(null);
+  const [users, setUsers] = useState<SafeUser[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [reports, setReports] = useState<ReportItem[]>([]);
+  const [pendingPays, setPendingPays] = useState<PendingPayment[]>([]);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const [wordTr, setWordTr] = useState("");
+  const [wordTarget, setWordTarget] = useState("");
+  const [catTitle, setCatTitle] = useState("");
+  const [catSlug, setCatSlug] = useState("");
+  const [lessonTitle, setLessonTitle] = useState("");
+  const [lessonSlug, setLessonSlug] = useState("");
+  const [lessonCategoryId, setLessonCategoryId] = useState("");
+  const [lessonContent, setLessonContent] = useState("");
+  const [liveTitle, setLiveTitle] = useState("");
+  const [liveStart, setLiveStart] = useState("");
+  const [liveEnd, setLiveEnd] = useState("");
+  const [liveMeet, setLiveMeet] = useState("https://meet.google.com/");
+  const [liveDesc, setLiveDesc] = useState("");
+
+  useEffect(() => {
+    if (!loading && (!user || !isStaff)) {
+      router.replace("/giris");
+    }
+  }, [loading, user, isStaff, router]);
+
+  async function refresh() {
+    if (!accessToken) return;
+    const [dash, userList, cats, reportList, pays] = await Promise.all([
+      api.adminDashboard(accessToken),
+      api.adminUsers(accessToken),
+      api.adminCategories(accessToken),
+      api.forumReports(accessToken).catch(() => [] as ReportItem[]),
+      user?.role === "SUPER_ADMIN"
+        ? api.pendingPayments(accessToken).catch(() => [] as PendingPayment[])
+        : Promise.resolve([] as PendingPayment[]),
+    ]);
+    setStats(dash.users);
+    setUsers(userList.items);
+    setCategories(cats);
+    setReports(reportList);
+    setPendingPays(pays);
+    if (!lessonCategoryId && cats[0]) {
+      setLessonCategoryId(cats[0].id);
+    }
+  }
+
+  useEffect(() => {
+    if (accessToken && isStaff) {
+      void refresh().catch((err) =>
+        setError(err instanceof Error ? err.message : "Admin veri alınamadı"),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken, isStaff]);
+
+  async function activateUser(id: string) {
+    if (!accessToken) return;
+    await api.updateUserStatus(accessToken, id, "ACTIVE");
+    setMessage("Kullanıcı ACTIVE yapıldı");
+    await refresh();
+  }
+
+  async function resolveReport(id: string) {
+    if (!accessToken) return;
+    await api.resolveForumReport(accessToken, id);
+    setMessage("Şikayet çözüldü");
+    await refresh();
+  }
+
+  async function hideReportedEntry(entryId: string, reportId: string) {
+    if (!accessToken) return;
+    await api.hideForumEntry(accessToken, entryId);
+    await api.resolveForumReport(accessToken, reportId);
+    setMessage("Entry gizlendi");
+    await refresh();
+  }
+
+  async function addWord(e: FormEvent) {
+    e.preventDefault();
+    if (!accessToken) return;
+    await api.createDictionary(accessToken, { wordTr, wordTarget });
+    setWordTr("");
+    setWordTarget("");
+    setMessage("Sözlük kaydı eklendi");
+  }
+
+  async function addCategory(e: FormEvent) {
+    e.preventDefault();
+    if (!accessToken) return;
+    await api.createCategory(accessToken, {
+      title: catTitle,
+      slug: catSlug,
+    });
+    setCatTitle("");
+    setCatSlug("");
+    setMessage("Kategori eklendi");
+    await refresh();
+  }
+
+  async function addLesson(e: FormEvent) {
+    e.preventDefault();
+    if (!accessToken) return;
+    await api.createLesson(accessToken, {
+      title: lessonTitle,
+      slug: lessonSlug,
+      categoryId: lessonCategoryId,
+      content: lessonContent,
+      published: true,
+      level: "A1",
+    });
+    setLessonTitle("");
+    setLessonSlug("");
+    setLessonContent("");
+    setMessage("Ders yayınlandı");
+  }
+
+  async function addLiveEvent(e: FormEvent) {
+    e.preventDefault();
+    if (!accessToken) return;
+    await api.createCalendarEvent(accessToken, {
+      title: liveTitle,
+      description: liveDesc || undefined,
+      startAt: new Date(liveStart).toISOString(),
+      endAt: new Date(liveEnd).toISOString(),
+      meetUrl: liveMeet || undefined,
+      level: "A1",
+      published: true,
+    });
+    setLiveTitle("");
+    setLiveDesc("");
+    setLiveStart("");
+    setLiveEnd("");
+    setMessage("Canlı ders takvime eklendi");
+  }
+
+  async function triggerReminders() {
+    if (!accessToken || user?.role !== "SUPER_ADMIN") return;
+    const res = await api.runReminders(accessToken);
+    setMessage(`Ders hatırlatması: ${res.sent} mail`);
+  }
+
+  async function reviewPay(
+    id: string,
+    decision: "APPROVED" | "REJECTED",
+  ) {
+    if (!accessToken) return;
+    await api.reviewPayment(accessToken, id, {
+      decision,
+      rejectReason: decision === "REJECTED" ? "Eksik dekont" : undefined,
+    });
+    setMessage(decision === "APPROVED" ? "Ödeme onaylandı" : "Ödeme reddedildi");
+    await refresh();
+  }
+
+  async function triggerPaymentReminders() {
+    if (!accessToken || user?.role !== "SUPER_ADMIN") return;
+    const res = await api.runPaymentReminders(accessToken);
+    setMessage(`Ödeme hatırlatması: ${res.sent} mail`);
+  }
+
+  if (loading || !isStaff) {
+    return <p className="muted">Yükleniyor…</p>;
+  }
+
+  return (
+    <>
+      <h1 className="section-title">Admin</h1>
+      <p className="section-lead">
+        Kullanıcı onayı, sözlük ve ders içerik yönetimi.
+      </p>
+
+      {message && (
+        <div className="panel" style={{ marginBottom: "1rem", background: "rgba(15,92,87,.08)" }}>
+          {message}
+        </div>
+      )}
+      {error && <div className="error">{error}</div>}
+
+      {stats && (
+        <div className="stat-row" style={{ marginBottom: "1.5rem" }}>
+          <div className="stat">
+            <strong>{stats.total}</strong>
+            <span className="muted">Toplam üye</span>
+          </div>
+          <div className="stat">
+            <strong>{stats.pending}</strong>
+            <span className="muted">Bekleyen</span>
+          </div>
+          <div className="stat">
+            <strong>{stats.active}</strong>
+            <span className="muted">Aktif</span>
+          </div>
+          <div className="stat">
+            <strong>{stats.suspended}</strong>
+            <span className="muted">Askıda</span>
+          </div>
+        </div>
+      )}
+
+      {user?.role === "SUPER_ADMIN" && (
+        <section className="panel" style={{ marginBottom: "1.25rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+            <h2 style={{ fontFamily: "var(--font-display)", marginTop: 0 }}>
+              Bekleyen ödemeler ({pendingPays.length})
+            </h2>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={() => void triggerPaymentReminders()}
+            >
+              Ödeme hatırlatmalarını tara
+            </button>
+          </div>
+          {pendingPays.map((p) => (
+            <div key={p.id} className="list-row">
+              <div>
+                <strong>
+                  {p.user.displayName} · {p.subscription.plan.name}
+                </strong>
+                <div className="muted">
+                  {(p.amountTry / 100).toLocaleString("tr-TR", {
+                    style: "currency",
+                    currency: "TRY",
+                  })}
+                  {p.receiptUrl && (
+                    <>
+                      {" · "}
+                      <a href={p.receiptUrl} target="_blank" rel="noreferrer">
+                        dekont
+                      </a>
+                    </>
+                  )}
+                </div>
+                {p.note && <div className="muted">{p.note}</div>}
+              </div>
+              <div style={{ display: "flex", gap: "0.4rem" }}>
+                <button
+                  type="button"
+                  className="btn btn--solid"
+                  onClick={() => void reviewPay(p.id, "APPROVED")}
+                >
+                  Onayla
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  onClick={() => void reviewPay(p.id, "REJECTED")}
+                >
+                  Reddet
+                </button>
+              </div>
+            </div>
+          ))}
+          {pendingPays.length === 0 && (
+            <p className="muted">Bekleyen ödeme yok.</p>
+          )}
+        </section>
+      )}
+
+      <section className="panel" style={{ marginBottom: "1.25rem" }}>
+        <h2 style={{ fontFamily: "var(--font-display)", marginTop: 0 }}>
+          Forum şikayetleri ({reports.length})
+        </h2>
+        {reports.map((r) => (
+          <div key={r.id} className="list-row">
+            <div>
+              <strong>{r.entry.topic.title}</strong>
+              <div className="muted">{r.reason}</div>
+              <div className="muted" style={{ marginTop: 4 }}>
+                {r.entry.body.slice(0, 120)}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "0.4rem" }}>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => void resolveReport(r.id)}
+              >
+                Kapat
+              </button>
+              <button
+                type="button"
+                className="btn btn--clay"
+                onClick={() => void hideReportedEntry(r.entry.id, r.id)}
+              >
+                Gizle
+              </button>
+            </div>
+          </div>
+        ))}
+        {reports.length === 0 && <p className="muted">Açık şikayet yok.</p>}
+      </section>
+
+      <div className="grid-2">
+        <section className="panel">
+          <h2 style={{ fontFamily: "var(--font-display)", marginTop: 0 }}>Kullanıcılar</h2>
+          {users.map((u) => (
+            <div key={u.id} className="list-row">
+              <div>
+                <strong>{u.displayName}</strong>
+                <div className="muted">
+                  {u.email} · {u.role} · {u.status}
+                </div>
+              </div>
+              {u.status === "PENDING" && user?.role === "SUPER_ADMIN" && (
+                <button
+                  type="button"
+                  className="btn btn--solid"
+                  onClick={() => void activateUser(u.id)}
+                >
+                  Aktif et
+                </button>
+              )}
+            </div>
+          ))}
+        </section>
+
+        <section className="panel stack">
+          <h2 style={{ fontFamily: "var(--font-display)", marginTop: 0 }}>Sözlük ekle</h2>
+          <form className="stack" onSubmit={addWord}>
+            <div className="field">
+              <label>Türkçe</label>
+              <input value={wordTr} onChange={(e) => setWordTr(e.target.value)} required />
+            </div>
+            <div className="field">
+              <label>Hedef dil</label>
+              <input value={wordTarget} onChange={(e) => setWordTarget(e.target.value)} required />
+            </div>
+            <button className="btn btn--solid" type="submit">
+              Kaydet
+            </button>
+          </form>
+        </section>
+
+        <section className="panel stack">
+          <h2 style={{ fontFamily: "var(--font-display)", marginTop: 0 }}>Kategori ekle</h2>
+          <form className="stack" onSubmit={addCategory}>
+            <div className="field">
+              <label>Başlık</label>
+              <input value={catTitle} onChange={(e) => setCatTitle(e.target.value)} required />
+            </div>
+            <div className="field">
+              <label>Slug</label>
+              <input value={catSlug} onChange={(e) => setCatSlug(e.target.value)} required />
+            </div>
+            <button className="btn btn--solid" type="submit">
+              Kaydet
+            </button>
+          </form>
+        </section>
+
+        <section className="panel stack">
+          <h2 style={{ fontFamily: "var(--font-display)", marginTop: 0 }}>Ders ekle</h2>
+          <form className="stack" onSubmit={addLesson}>
+            <div className="field">
+              <label>Başlık</label>
+              <input value={lessonTitle} onChange={(e) => setLessonTitle(e.target.value)} required />
+            </div>
+            <div className="field">
+              <label>Slug</label>
+              <input value={lessonSlug} onChange={(e) => setLessonSlug(e.target.value)} required />
+            </div>
+            <div className="field">
+              <label>Kategori</label>
+              <select
+                value={lessonCategoryId}
+                onChange={(e) => setLessonCategoryId(e.target.value)}
+                required
+              >
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>İçerik</label>
+              <textarea
+                rows={5}
+                value={lessonContent}
+                onChange={(e) => setLessonContent(e.target.value)}
+              />
+            </div>
+            <button className="btn btn--clay" type="submit">
+              Yayınla
+            </button>
+          </form>
+        </section>
+
+        <section className="panel stack">
+          <h2 style={{ fontFamily: "var(--font-display)", marginTop: 0 }}>
+            Canlı ders (Meet)
+          </h2>
+          <form className="stack" onSubmit={addLiveEvent}>
+            <div className="field">
+              <label>Başlık</label>
+              <input
+                value={liveTitle}
+                onChange={(e) => setLiveTitle(e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label>Başlangıç</label>
+              <input
+                type="datetime-local"
+                value={liveStart}
+                onChange={(e) => setLiveStart(e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label>Bitiş</label>
+              <input
+                type="datetime-local"
+                value={liveEnd}
+                onChange={(e) => setLiveEnd(e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label>Google Meet URL</label>
+              <input
+                value={liveMeet}
+                onChange={(e) => setLiveMeet(e.target.value)}
+                placeholder="https://meet.google.com/xxx-yyyy-zzz"
+              />
+            </div>
+            <div className="field">
+              <label>Açıklama</label>
+              <textarea
+                rows={3}
+                value={liveDesc}
+                onChange={(e) => setLiveDesc(e.target.value)}
+              />
+            </div>
+            <button className="btn btn--solid" type="submit">
+              Takvime ekle
+            </button>
+          </form>
+          {user?.role === "SUPER_ADMIN" && (
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={() => void triggerReminders()}
+            >
+              Hatırlatmaları şimdi tara
+            </button>
+          )}
+        </section>
+      </div>
+    </>
+  );
+}
