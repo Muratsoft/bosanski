@@ -42,6 +42,15 @@ export class DictionaryController {
   }
 
   @Public()
+  @Get('ai/explain')
+  explain(
+    @Query('q') q: string,
+    @Query('variant') variant?: LangVariant,
+  ) {
+    return this.dictionaryService.explainWithAi(q, variant);
+  }
+
+  @Public()
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.dictionaryService.findOne(id);

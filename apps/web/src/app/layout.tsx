@@ -17,7 +17,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Bosanski — BCS Dil Platformu",
+  title: "Bosanski — Boşnakça / Sırpça / Hırvatça / Karadağça",
   description:
     "Türkçe konuşanlar için Boşnakça, Sırpça, Hırvatça ve Karadağça öğrenme platformu.",
 };

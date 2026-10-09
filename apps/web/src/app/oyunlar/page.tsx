@@ -72,7 +72,9 @@ export default function GamesPage() {
               setPrefs((p) => ({ ...p, variant: e.target.value }))
             }
           >
-            <option value="COMMON">Ortak BCS</option>
+            <option value="COMMON">
+              Ortak (Boşnakça / Sırpça / Hırvatça / Karadağça)
+            </option>
             <option value="BS">Boşnakça</option>
             <option value="HR">Hırvatça</option>
             <option value="SR">Sırpça</option>
@@ -571,7 +573,7 @@ function MatchGame({
       ) : (
         <>
           <div className="muted">
-            Eşleşen: {matched.length}/{total} · önce Türkçe, sonra BCS seç
+            Eşleşen: {matched.length}/{total} · önce Türkçe, sonra hedef dil seç
           </div>
           <div className="match-grid">
             <div className="stack">

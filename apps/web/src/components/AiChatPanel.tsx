@@ -97,9 +97,11 @@ export function AiChatPanel({
           </select>
         </label>
         <label>
-          Varyant
+          Dil
           <select value={variant} onChange={(e) => setVariant(e.target.value)}>
-            <option value="COMMON">Ortak</option>
+            <option value="COMMON">
+              Ortak (Boşnakça / Sırpça / Hırvatça / Karadağça)
+            </option>
             <option value="BS">Boşnakça</option>
             <option value="HR">Hırvatça</option>
             <option value="SR">Sırpça</option>

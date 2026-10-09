@@ -123,6 +123,17 @@ export const api = {
     request<{ total: number; items: DictionaryEntry[] }>(
       `/dictionary${q ? `?q=${encodeURIComponent(q)}` : ""}`,
     ),
+  dictionaryAiExplain: (q: string, variant?: string) =>
+    request<{
+      source: "ai" | "dictionary";
+      query: string;
+      matches: DictionaryEntry[];
+      explanation: string;
+    }>(
+      `/dictionary/ai/explain?q=${encodeURIComponent(q)}${
+        variant ? `&variant=${encodeURIComponent(variant)}` : ""
+      }`,
+    ),
   categories: () => request<Category[]>("/categories"),
   category: (slug: string) => request<Category>(`/categories/${slug}`),
   lessons: (q?: string) =>

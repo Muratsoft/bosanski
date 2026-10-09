@@ -125,7 +125,7 @@ export class GamesService {
   private variantLabel(opts: GameOptions) {
     const v = (opts.variant || 'COMMON').toUpperCase();
     const map: Record<string, string> = {
-      COMMON: 'ortak BCS (Boşnakça/Sırpça/Hırvatça/Karadağça)',
+      COMMON: 'ortak Boşnakça / Sırpça / Hırvatça / Karadağça',
       BS: 'Boşnakça',
       HR: 'Hırvatça',
       SR: 'Sırpça',
