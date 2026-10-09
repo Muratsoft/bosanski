@@ -16,7 +16,58 @@ export class AiProvider {
 
   constructor(private readonly config: ConfigService) {}
 
+  hasRemoteModel() {
+    return Boolean(
+      this.config.get<string>('OPENAI_API_KEY')?.trim() ||
+        this.config.get<string>('GEMINI_API_KEY')?.trim(),
+    );
+  }
+
   async chat(input: AiChatInput): Promise<string> {
+    try {
+      return await this.completeChat(input);
+    } catch (err) {
+      this.logger.warn(
+        `AI chat fallback: ${err instanceof Error ? err.message : err}`,
+      );
+      return this.offlineTutor(input, {
+        providerConfigured: this.hasRemoteModel(),
+      });
+    }
+  }
+
+  /** Serbest metin tamamlama (oyun JSON üretimi vb.) */
+  async completePrompt(prompt: string): Promise<string> {
+    const openaiKey = this.config.get<string>('OPENAI_API_KEY')?.trim();
+    if (openaiKey) {
+      try {
+        return await this.chatOpenAi(openaiKey, {
+          message: prompt,
+          level: 'A1',
+          variant: 'COMMON',
+          history: [],
+        });
+      } catch (err) {
+        this.logger.warn(
+          `OpenAI prompt hata: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+
+    const geminiKey = this.config.get<string>('GEMINI_API_KEY')?.trim();
+    if (geminiKey) {
+      return this.chatGemini(geminiKey, {
+        message: prompt,
+        level: 'A1',
+        variant: 'COMMON',
+        history: [],
+      });
+    }
+
+    throw new Error('AI API anahtarı yok');
+  }
+
+  private async completeChat(input: AiChatInput): Promise<string> {
     const openaiKey = this.config.get<string>('OPENAI_API_KEY')?.trim();
     if (openaiKey) {
       try {
@@ -30,17 +81,10 @@ export class AiProvider {
 
     const geminiKey = this.config.get<string>('GEMINI_API_KEY')?.trim();
     if (geminiKey) {
-      try {
-        return await this.chatGemini(geminiKey, input);
-      } catch (err) {
-        this.logger.warn(
-          `Gemini hata, fallback: ${err instanceof Error ? err.message : err}`,
-        );
-        return this.offlineTutor(input, { providerConfigured: true });
-      }
+      return this.chatGemini(geminiKey, input);
     }
 
-    return this.offlineTutor(input, { providerConfigured: false });
+    throw new Error('AI API anahtarı yok');
   }
 
   private systemPrompt(input: AiChatInput) {

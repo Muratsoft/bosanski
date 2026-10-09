@@ -13,11 +13,23 @@ import {
 
 type Tab = "quiz" | "flash" | "match";
 
+type GamePrefs = {
+  level: string;
+  variant: string;
+  topic: string;
+};
+
 export default function GamesPage() {
   const { user, accessToken } = useAuth();
   const [tab, setTab] = useState<Tab>("quiz");
   const [board, setBoard] = useState<LeaderboardRow[]>([]);
   const [error, setError] = useState("");
+  const [prefs, setPrefs] = useState<GamePrefs>({
+    level: "A1",
+    variant: "COMMON",
+    topic: "günlük konuşma",
+  });
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     void api
@@ -30,9 +42,65 @@ export default function GamesPage() {
     <>
       <h1 className="section-title">Oyunlar</h1>
       <p className="section-lead">
-        Sözlükten üretilen quiz, flashcard ve eşleştirme. Skor kaydı için giriş
-        yap.
+        Quiz, flashcard ve eşleştirme Gemini ile üretilir; olmazsa sözlüğe
+        düşer. Skor için giriş yap.
       </p>
+
+      <div className="panel game-prefs">
+        <div className="field">
+          <label htmlFor="g-level">Seviye</label>
+          <select
+            id="g-level"
+            value={prefs.level}
+            onChange={(e) =>
+              setPrefs((p) => ({ ...p, level: e.target.value }))
+            }
+          >
+            {["A1", "A2", "B1", "B2"].map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="g-variant">Varyant</label>
+          <select
+            id="g-variant"
+            value={prefs.variant}
+            onChange={(e) =>
+              setPrefs((p) => ({ ...p, variant: e.target.value }))
+            }
+          >
+            <option value="COMMON">Ortak BCS</option>
+            <option value="BS">Boşnakça</option>
+            <option value="HR">Hırvatça</option>
+            <option value="SR">Sırpça</option>
+            <option value="CNR">Karadağça</option>
+          </select>
+        </div>
+        <div className="field" style={{ gridColumn: "1 / -1" }}>
+          <label htmlFor="g-topic">Konu</label>
+          <input
+            id="g-topic"
+            value={prefs.topic}
+            onChange={(e) =>
+              setPrefs((p) => ({ ...p, topic: e.target.value }))
+            }
+            placeholder="ör. kafe, selamlaşma, yol sorma"
+          />
+        </div>
+        <button
+          type="button"
+          className="btn btn--solid"
+          onClick={() => {
+            setError("");
+            setReloadKey((k) => k + 1);
+          }}
+        >
+          YZ ile yeni tur
+        </button>
+      </div>
 
       <div className="game-tabs">
         {(
@@ -57,6 +125,8 @@ export default function GamesPage() {
 
       {tab === "quiz" && (
         <QuizGame
+          key={`quiz-${reloadKey}`}
+          prefs={prefs}
           accessToken={accessToken}
           onError={setError}
           onSaved={() => void api.gameLeaderboard().then(setBoard)}
@@ -64,6 +134,8 @@ export default function GamesPage() {
       )}
       {tab === "flash" && (
         <FlashGame
+          key={`flash-${reloadKey}`}
+          prefs={prefs}
           accessToken={accessToken}
           onError={setError}
           onSaved={() => void api.gameLeaderboard().then(setBoard)}
@@ -71,6 +143,8 @@ export default function GamesPage() {
       )}
       {tab === "match" && (
         <MatchGame
+          key={`match-${reloadKey}`}
+          prefs={prefs}
           accessToken={accessToken}
           onError={setError}
           onSaved={() => void api.gameLeaderboard().then(setBoard)}
@@ -103,16 +177,28 @@ export default function GamesPage() {
   );
 }
 
+function SourceBadge({ source }: { source: string }) {
+  return (
+    <span className="badge">
+      {source === "ai" ? "Gemini" : "Sözlük"}
+    </span>
+  );
+}
+
 function QuizGame({
+  prefs,
   accessToken,
   onError,
   onSaved,
 }: {
+  prefs: GamePrefs;
   accessToken: string | null;
   onError: (m: string) => void;
   onSaved: () => void;
 }) {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [source, setSource] = useState("ai");
+  const [loading, setLoading] = useState(true);
   const [idx, setIdx] = useState(0);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
@@ -121,9 +207,17 @@ function QuizGame({
 
   async function start() {
     onError("");
+    setLoading(true);
     try {
-      const qs = await api.gameQuiz(6);
-      setQuestions(qs);
+      const res = await api.gameQuiz({
+        count: 6,
+        level: prefs.level,
+        variant: prefs.variant,
+        topic: prefs.topic,
+        source: "ai",
+      });
+      setQuestions(res.items);
+      setSource(res.source);
       setIdx(0);
       setScore(0);
       setDone(false);
@@ -131,6 +225,8 @@ function QuizGame({
       setStartedAt(Date.now());
     } catch (err) {
       onError(err instanceof Error ? err.message : "Quiz yüklenemedi");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -171,10 +267,19 @@ function QuizGame({
     }, 650);
   }
 
-  if (!q && !done) return <p className="muted">Yükleniyor…</p>;
+  if (loading) {
+    return <p className="muted">YZ quiz hazırlıyor…</p>;
+  }
+  if (!q && !done) return <p className="muted">Soru yok.</p>;
 
   return (
     <div className="panel stack">
+      <div className="muted" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <SourceBadge source={source} />
+        <span>
+          {prefs.level} · {prefs.variant}
+        </span>
+      </div>
       {done ? (
         <>
           <h2 style={{ fontFamily: "var(--font-display)", margin: 0 }}>
@@ -184,7 +289,7 @@ function QuizGame({
             Skor: <strong>{score}/{questions.length}</strong>
           </p>
           <button type="button" className="btn btn--solid" onClick={() => void start()}>
-            Tekrar oyna
+            YZ ile tekrar
           </button>
         </>
       ) : (
@@ -221,15 +326,19 @@ function QuizGame({
 }
 
 function FlashGame({
+  prefs,
   accessToken,
   onError,
   onSaved,
 }: {
+  prefs: GamePrefs;
   accessToken: string | null;
   onError: (m: string) => void;
   onSaved: () => void;
 }) {
   const [cards, setCards] = useState<Flashcard[]>([]);
+  const [source, setSource] = useState("ai");
+  const [loading, setLoading] = useState(true);
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [known, setKnown] = useState(0);
@@ -238,9 +347,17 @@ function FlashGame({
 
   async function start() {
     onError("");
+    setLoading(true);
     try {
-      const list = await api.gameFlashcards(8);
-      setCards(list);
+      const res = await api.gameFlashcards({
+        count: 8,
+        level: prefs.level,
+        variant: prefs.variant,
+        topic: prefs.topic,
+        source: "ai",
+      });
+      setCards(res.items);
+      setSource(res.source);
       setIdx(0);
       setFlipped(false);
       setKnown(0);
@@ -248,6 +365,8 @@ function FlashGame({
       setStartedAt(Date.now());
     } catch (err) {
       onError(err instanceof Error ? err.message : "Kartlar yüklenemedi");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -282,10 +401,17 @@ function FlashGame({
     setFlipped(false);
   }
 
-  if (!card && !done) return <p className="muted">Yükleniyor…</p>;
+  if (loading) return <p className="muted">YZ flashcard hazırlıyor…</p>;
+  if (!card && !done) return <p className="muted">Kart yok.</p>;
 
   return (
     <div className="panel stack">
+      <div className="muted" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <SourceBadge source={source} />
+        <span>
+          {prefs.level} · {prefs.variant}
+        </span>
+      </div>
       {done ? (
         <>
           <h2 style={{ fontFamily: "var(--font-display)", margin: 0 }}>
@@ -295,7 +421,7 @@ function FlashGame({
             Bildin: <strong>{known}/{cards.length}</strong>
           </p>
           <button type="button" className="btn btn--solid" onClick={() => void start()}>
-            Tekrar
+            YZ ile tekrar
           </button>
         </>
       ) : (
@@ -330,15 +456,19 @@ function FlashGame({
 }
 
 function MatchGame({
+  prefs,
   accessToken,
   onError,
   onSaved,
 }: {
+  prefs: GamePrefs;
   accessToken: string | null;
   onError: (m: string) => void;
   onSaved: () => void;
 }) {
   const [round, setRound] = useState<MatchRound | null>(null);
+  const [source, setSource] = useState("ai");
+  const [loading, setLoading] = useState(true);
   const [leftSel, setLeftSel] = useState<string | null>(null);
   const [matched, setMatched] = useState<string[]>([]);
   const [score, setScore] = useState(0);
@@ -347,9 +477,17 @@ function MatchGame({
 
   async function start() {
     onError("");
+    setLoading(true);
     try {
-      const data = await api.gameMatch(5);
+      const data = await api.gameMatch({
+        count: 5,
+        level: prefs.level,
+        variant: prefs.variant,
+        topic: prefs.topic,
+        source: "ai",
+      });
       setRound(data);
+      setSource(data.source);
       setLeftSel(null);
       setMatched([]);
       setScore(0);
@@ -357,6 +495,8 @@ function MatchGame({
       setStartedAt(Date.now());
     } catch (err) {
       onError(err instanceof Error ? err.message : "Eşleştirme yüklenemedi");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -405,10 +545,17 @@ function MatchGame({
     }
   }
 
-  if (!round && !done) return <p className="muted">Yükleniyor…</p>;
+  if (loading) return <p className="muted">YZ eşleştirme hazırlıyor…</p>;
+  if (!round && !done) return <p className="muted">Tur yok.</p>;
 
   return (
     <div className="panel stack">
+      <div className="muted" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <SourceBadge source={source} />
+        <span>
+          {prefs.level} · {prefs.variant}
+        </span>
+      </div>
       {done ? (
         <>
           <h2 style={{ fontFamily: "var(--font-display)", margin: 0 }}>
@@ -418,7 +565,7 @@ function MatchGame({
             Skor: <strong>{score}/{total}</strong>
           </p>
           <button type="button" className="btn btn--solid" onClick={() => void start()}>
-            Tekrar
+            YZ ile tekrar
           </button>
         </>
       ) : (

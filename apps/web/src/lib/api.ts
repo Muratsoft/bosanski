@@ -367,12 +367,12 @@ export const api = {
         updatedAt: string;
       }[]
     >("/ai/conversations", { token }),
-  gameQuiz: (count = 8) =>
-    request<QuizQuestion[]>(`/games/quiz?count=${count}`),
-  gameFlashcards: (count = 10) =>
-    request<Flashcard[]>(`/games/flashcards?count=${count}`),
-  gameMatch: (count = 6) =>
-    request<MatchRound>(`/games/match?count=${count}`),
+  gameQuiz: (opts: GameRequestOpts = {}) =>
+    request<GameQuizResponse>(`/games/quiz?${gameQuery(opts)}`),
+  gameFlashcards: (opts: GameRequestOpts = {}) =>
+    request<GameFlashResponse>(`/games/flashcards?${gameQuery(opts)}`),
+  gameMatch: (opts: GameRequestOpts = {}) =>
+    request<GameMatchResponse>(`/games/match?${gameQuery(opts)}`),
   gameLeaderboard: (gameType?: string) =>
     request<LeaderboardRow[]>(
       `/games/leaderboard${gameType ? `?gameType=${gameType}` : ""}`,
@@ -454,6 +454,24 @@ export type AiUsage = {
   provider: string;
 };
 
+export type GameRequestOpts = {
+  count?: number;
+  level?: string;
+  variant?: string;
+  topic?: string;
+  source?: "ai" | "dictionary" | "auto";
+};
+
+function gameQuery(opts: GameRequestOpts) {
+  const q = new URLSearchParams();
+  q.set("count", String(opts.count ?? 8));
+  if (opts.level) q.set("level", opts.level);
+  if (opts.variant) q.set("variant", opts.variant);
+  if (opts.topic) q.set("topic", opts.topic);
+  if (opts.source) q.set("source", opts.source);
+  return q.toString();
+}
+
 export type QuizQuestion = {
   id: string;
   prompt: string;
@@ -476,6 +494,20 @@ export type MatchRound = {
   pairs: { id: string; tr: string; target: string }[];
   left: { id: string; label: string }[];
   right: { id: string; label: string }[];
+};
+
+export type GameQuizResponse = {
+  source: "ai" | "dictionary";
+  items: QuizQuestion[];
+};
+
+export type GameFlashResponse = {
+  source: "ai" | "dictionary";
+  items: Flashcard[];
+};
+
+export type GameMatchResponse = MatchRound & {
+  source: "ai" | "dictionary";
 };
 
 export type LeaderboardRow = {

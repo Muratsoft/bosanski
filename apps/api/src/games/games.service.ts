@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { GameType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AiProvider } from '../ai/ai.provider.js';
 import { SaveScoreDto } from './dto/save-score.dto.js';
 
 function shuffle<T>(arr: T[]): T[] {
@@ -12,12 +13,261 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+function parseJsonPayload<T>(raw: string): T {
+  const cleaned = raw
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+  const start = cleaned.indexOf('{');
+  const startArr = cleaned.indexOf('[');
+  let body = cleaned;
+  if (startArr >= 0 && (start < 0 || startArr < start)) {
+    const end = cleaned.lastIndexOf(']');
+    body = cleaned.slice(startArr, end + 1);
+  } else if (start >= 0) {
+    const end = cleaned.lastIndexOf('}');
+    body = cleaned.slice(start, end + 1);
+  }
+  return JSON.parse(body) as T;
+}
+
+export type GameOptions = {
+  count?: number;
+  level?: string;
+  variant?: string;
+  topic?: string;
+  source?: 'ai' | 'dictionary' | 'auto';
+};
+
 @Injectable()
 export class GamesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(GamesService.name);
 
-  async quiz(count = 8) {
-    const take = Math.min(Math.max(count, 4), 20);
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ai: AiProvider,
+  ) {}
+
+  async quiz(opts: GameOptions = {}) {
+    const take = Math.min(Math.max(opts.count ?? 8, 4), 20);
+    const preferAi = (opts.source ?? 'ai') !== 'dictionary';
+
+    if (preferAi && this.ai.hasRemoteModel()) {
+      try {
+        const aiQuiz = await this.aiQuiz(take, opts);
+        if (aiQuiz.length >= 4) {
+          return { source: 'ai' as const, items: aiQuiz };
+        }
+      } catch (err) {
+        this.logger.warn(
+          `AI quiz fallback: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+
+    return {
+      source: 'dictionary' as const,
+      items: await this.dictionaryQuiz(take),
+    };
+  }
+
+  async flashcards(opts: GameOptions = {}) {
+    const take = Math.min(Math.max(opts.count ?? 10, 4), 30);
+    const preferAi = (opts.source ?? 'ai') !== 'dictionary';
+
+    if (preferAi && this.ai.hasRemoteModel()) {
+      try {
+        const cards = await this.aiFlashcards(take, opts);
+        if (cards.length >= 4) {
+          return { source: 'ai' as const, items: cards };
+        }
+      } catch (err) {
+        this.logger.warn(
+          `AI flashcard fallback: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+
+    return {
+      source: 'dictionary' as const,
+      items: await this.dictionaryFlashcards(take),
+    };
+  }
+
+  async match(opts: GameOptions = {}) {
+    const take = Math.min(Math.max(opts.count ?? 6, 4), 12);
+    const preferAi = (opts.source ?? 'ai') !== 'dictionary';
+
+    if (preferAi && this.ai.hasRemoteModel()) {
+      try {
+        const round = await this.aiMatch(take, opts);
+        if (round.pairs.length >= 4) {
+          return { source: 'ai' as const, ...round };
+        }
+      } catch (err) {
+        this.logger.warn(
+          `AI match fallback: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+
+    return {
+      source: 'dictionary' as const,
+      ...(await this.dictionaryMatch(take)),
+    };
+  }
+
+  private levelLabel(opts: GameOptions) {
+    return opts.level || 'A1';
+  }
+
+  private variantLabel(opts: GameOptions) {
+    const v = (opts.variant || 'COMMON').toUpperCase();
+    const map: Record<string, string> = {
+      COMMON: 'ortak BCS (Boşnakça/Sırpça/Hırvatça/Karadağça)',
+      BS: 'Boşnakça',
+      HR: 'Hırvatça',
+      SR: 'Sırpça',
+      CNR: 'Karadağça',
+    };
+    return map[v] || map.COMMON;
+  }
+
+  private async aiQuiz(count: number, opts: GameOptions) {
+    const topic = opts.topic?.trim() || 'günlük konuşma ve temel kelimeler';
+    const prompt = [
+      `Sen BCS dil öğretmenisin. Seviye: ${this.levelLabel(opts)}. Dil: ${this.variantLabel(opts)}.`,
+      `Konu: ${topic}.`,
+      `Tam ${count} adet çoktan seçmeli quiz sorusu üret.`,
+      'Sadece JSON döndür, markdown yok.',
+      'Şema: {"questions":[{"id":"q1","prompt":"...","direction":"TR→BCS veya BCS→TR","choices":["a","b","c","d"],"answer":"doğru seçenek","hint":"kısa ipucu"}]}',
+      'Kurallar: choices tam 4 adet olsun; answer choices içinde olsun; Türkçe öğrenenler için uygun olsun.',
+    ].join('\n');
+
+    const raw = await this.ai.completePrompt(prompt);
+    const data = parseJsonPayload<{
+      questions?: {
+        id?: string;
+        prompt: string;
+        direction?: string;
+        choices: string[];
+        answer: string;
+        hint?: string;
+      }[];
+    }>(raw);
+
+    const questions = (data.questions || [])
+      .filter(
+        (q) =>
+          q.prompt &&
+          Array.isArray(q.choices) &&
+          q.choices.length >= 2 &&
+          q.answer,
+      )
+      .slice(0, count)
+      .map((q, i) => {
+        const choices = shuffle([...new Set(q.choices)]).slice(0, 4);
+        const answer = choices.includes(q.answer)
+          ? q.answer
+          : choices[0] || q.answer;
+        return {
+          id: q.id || `ai-quiz-${i + 1}`,
+          prompt: q.prompt,
+          direction: q.direction || 'TR→BCS',
+          choices: shuffle(
+            choices.includes(answer) ? choices : [...choices, answer],
+          ).slice(0, 4),
+          answer,
+          hint: q.hint || null,
+        };
+      });
+
+    if (questions.length < 4) {
+      throw new Error('AI quiz yetersiz soru üretti');
+    }
+    return questions;
+  }
+
+  private async aiFlashcards(count: number, opts: GameOptions) {
+    const topic = opts.topic?.trim() || 'temel kelime ve kalıplar';
+    const prompt = [
+      `Sen BCS dil öğretmenisin. Seviye: ${this.levelLabel(opts)}. Dil: ${this.variantLabel(opts)}.`,
+      `Konu: ${topic}.`,
+      `Tam ${count} flashcard üret.`,
+      'Sadece JSON döndür, markdown yok.',
+      'Şema: {"cards":[{"id":"c1","front":"Türkçe","back":"BCS","variant":"COMMON","exampleTr":"...","exampleTarget":"..."}]}',
+      'front Türkçe, back hedef dil olsun. Kısa örnek cümle ekle.',
+    ].join('\n');
+
+    const raw = await this.ai.completePrompt(prompt);
+    const data = parseJsonPayload<{
+      cards?: {
+        id?: string;
+        front: string;
+        back: string;
+        variant?: string;
+        exampleTr?: string;
+        exampleTarget?: string;
+        notes?: string;
+      }[];
+    }>(raw);
+
+    const cards = (data.cards || [])
+      .filter((c) => c.front && c.back)
+      .slice(0, count)
+      .map((c, i) => ({
+        id: c.id || `ai-card-${i + 1}`,
+        front: c.front,
+        back: c.back,
+        variant: c.variant || opts.variant || 'COMMON',
+        exampleTr: c.exampleTr || null,
+        exampleTarget: c.exampleTarget || null,
+        notes: c.notes || null,
+      }));
+
+    if (cards.length < 4) {
+      throw new Error('AI flashcard yetersiz');
+    }
+    return cards;
+  }
+
+  private async aiMatch(count: number, opts: GameOptions) {
+    const topic = opts.topic?.trim() || 'temel kelimeler';
+    const prompt = [
+      `Sen BCS dil öğretmenisin. Seviye: ${this.levelLabel(opts)}. Dil: ${this.variantLabel(opts)}.`,
+      `Konu: ${topic}.`,
+      `Tam ${count} Türkçe↔BCS eşleştirme çifti üret.`,
+      'Sadece JSON döndür, markdown yok.',
+      'Şema: {"pairs":[{"id":"p1","tr":"merhaba","target":"zdravo"}]}',
+    ].join('\n');
+
+    const raw = await this.ai.completePrompt(prompt);
+    const data = parseJsonPayload<{
+      pairs?: { id?: string; tr: string; target: string }[];
+    }>(raw);
+
+    const pairs = (data.pairs || [])
+      .filter((p) => p.tr && p.target)
+      .slice(0, count)
+      .map((p, i) => ({
+        id: p.id || `ai-pair-${i + 1}`,
+        tr: p.tr,
+        target: p.target,
+      }));
+
+    if (pairs.length < 4) {
+      throw new Error('AI eşleştirme yetersiz');
+    }
+
+    return {
+      pairs,
+      left: shuffle(pairs.map((p) => ({ id: p.id, label: p.tr }))),
+      right: shuffle(pairs.map((p) => ({ id: p.id, label: p.target }))),
+    };
+  }
+
+  private async dictionaryQuiz(take: number) {
     const words = await this.prisma.dictionaryEntry.findMany({
       where: { published: true },
       take: 200,
@@ -50,8 +300,7 @@ export class GamesService {
     });
   }
 
-  async flashcards(count = 10) {
-    const take = Math.min(Math.max(count, 4), 30);
+  private async dictionaryFlashcards(take: number) {
     const words = await this.prisma.dictionaryEntry.findMany({
       where: { published: true },
       take: 200,
@@ -69,8 +318,7 @@ export class GamesService {
       }));
   }
 
-  async match(count = 6) {
-    const take = Math.min(Math.max(count, 4), 12);
+  private async dictionaryMatch(take: number) {
     const words = await this.prisma.dictionaryEntry.findMany({
       where: { published: true },
       take: 200,

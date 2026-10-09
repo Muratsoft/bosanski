@@ -680,6 +680,19 @@ select {
   text-decoration: none;
 }
 
+.game-prefs {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 700px) {
+  .game-prefs {
+    grid-template-columns: 1fr 1fr auto;
+    align-items: end;
+  }
+}
+
 .game-tabs {
   display: flex;
   flex-wrap: wrap;

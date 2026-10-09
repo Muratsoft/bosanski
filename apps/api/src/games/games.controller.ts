@@ -14,20 +14,56 @@ export class GamesController {
 
   @Public()
   @Get('quiz')
-  quiz(@Query('count') count?: string) {
-    return this.gamesService.quiz(count ? Number(count) : 8);
+  quiz(
+    @Query('count') count?: string,
+    @Query('level') level?: string,
+    @Query('variant') variant?: string,
+    @Query('topic') topic?: string,
+    @Query('source') source?: 'ai' | 'dictionary' | 'auto',
+  ) {
+    return this.gamesService.quiz({
+      count: count ? Number(count) : 8,
+      level,
+      variant,
+      topic,
+      source,
+    });
   }
 
   @Public()
   @Get('flashcards')
-  flashcards(@Query('count') count?: string) {
-    return this.gamesService.flashcards(count ? Number(count) : 10);
+  flashcards(
+    @Query('count') count?: string,
+    @Query('level') level?: string,
+    @Query('variant') variant?: string,
+    @Query('topic') topic?: string,
+    @Query('source') source?: 'ai' | 'dictionary' | 'auto',
+  ) {
+    return this.gamesService.flashcards({
+      count: count ? Number(count) : 10,
+      level,
+      variant,
+      topic,
+      source,
+    });
   }
 
   @Public()
   @Get('match')
-  match(@Query('count') count?: string) {
-    return this.gamesService.match(count ? Number(count) : 6);
+  match(
+    @Query('count') count?: string,
+    @Query('level') level?: string,
+    @Query('variant') variant?: string,
+    @Query('topic') topic?: string,
+    @Query('source') source?: 'ai' | 'dictionary' | 'auto',
+  ) {
+    return this.gamesService.match({
+      count: count ? Number(count) : 6,
+      level,
+      variant,
+      topic,
+      source,
+    });
   }
 
   @Public()
