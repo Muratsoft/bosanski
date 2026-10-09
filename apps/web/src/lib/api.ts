@@ -17,6 +17,12 @@ export type AuthResponse = {
   refreshToken: string;
 };
 
+export type TickerWord = {
+  tr: string;
+  target: string;
+  variant: string;
+};
+
 export type DictionaryEntry = {
   id: string;
   wordTr: string;
@@ -109,6 +115,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
 export const api = {
   health: () => request<{ ok: boolean }>("/health"),
+  ticker: () =>
+    request<{ source: "ai" | "seed"; words: TickerWord[] }>("/ticker"),
   register: (body: {
     email: string;
     password: string;

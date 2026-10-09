@@ -1,11 +1,14 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { api, type DictionaryEntry } from "@/lib/api";
 import { variantLabel } from "@/lib/labels";
 
 export default function DictionaryPage() {
-  const [q, setQ] = useState("");
+  const params = useSearchParams();
+  const initialQ = params.get("q") || "";
+  const [q, setQ] = useState(initialQ);
   const [variant, setVariant] = useState("COMMON");
   const [items, setItems] = useState<DictionaryEntry[]>([]);
   const [total, setTotal] = useState(0);
@@ -30,8 +33,10 @@ export default function DictionaryPage() {
   }
 
   useEffect(() => {
-    void load();
-  }, []);
+    void load(initialQ);
+    // Şeritten gelen ?q= ile bir kez aç
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQ]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();

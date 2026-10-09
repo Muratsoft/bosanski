@@ -19,6 +19,7 @@ import { GroupsModule } from './groups/groups.module.js';
 import { MeModule } from './me/me.module.js';
 import { HomeworkModule } from './homework/homework.module.js';
 import { SelfTestModule } from './self-test/self-test.module.js';
+import { TickerModule } from './ticker/ticker.module.js';
 import { ScheduleModule } from '@nestjs/schedule';
 import { HealthController } from './health.controller.js';
 import { AppController } from './app.controller.js';
@@ -52,6 +53,7 @@ import { RolesGuard } from './common/guards/roles.guard.js';
     MeModule,
     HomeworkModule,
     SelfTestModule,
+    TickerModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

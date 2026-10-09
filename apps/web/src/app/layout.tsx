@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Fraunces } from "next/font/google";
 import { AuthProvider } from "@/lib/auth";
 import { SiteHeader } from "@/components/SiteHeader";
+import { WordTicker } from "@/components/WordTicker";
 import { MemberAlerts } from "@/components/MemberAlerts";
 import "./globals.css";
 
@@ -34,6 +35,7 @@ export default function RootLayout({
         <AuthProvider>
           <div className="site-shell">
             <SiteHeader />
+            <WordTicker />
             <MemberAlerts />
             <main className="main">{children}</main>
           </div>
