@@ -6,7 +6,9 @@ services:
     region: frankfurt
     rootDir: apps/api
     buildCommand: NPM_CONFIG_PRODUCTION=false npm install --workspaces=false && npx prisma generate && npm run build
-    startCommand: npx prisma migrate deploy && node dist/main.js
+    # Neon pooler advisory-lock timeout olmasın diye migrate deploy her açılışta değil;
+    # şema değişince bir kerelik Manual Shell: npx prisma migrate deploy
+    startCommand: node dist/main.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
