@@ -25,9 +25,9 @@ async function bootstrap() {
     }),
   );
 
-  const port = config.get<number>('PORT', 3001);
-  await app.listen(port);
-  console.log(`API çalışıyor: http://localhost:${port}/api`);
+  const port = Number(process.env.PORT || config.get('PORT') || 3001);
+  await app.listen(port, '0.0.0.0');
+  console.log(`API çalışıyor: http://0.0.0.0:${port}/api`);
 }
 
 await bootstrap();
