@@ -12,7 +12,6 @@ const SEED: TickerWord[] = [
   { tr: "hayır", target: "ne", variant: "COMMON" },
   { tr: "su", target: "voda", variant: "COMMON" },
   { tr: "ekmek", target: "hljeb", variant: "BS" },
-  { tr: "ekmek", target: "kruh", variant: "HR" },
   { tr: "süt", target: "mlijeko", variant: "BS" },
   { tr: "ev", target: "kuća", variant: "COMMON" },
   { tr: "okul", target: "škola", variant: "COMMON" },
@@ -23,13 +22,17 @@ const SEED: TickerWord[] = [
   { tr: "bir", target: "jedan", variant: "COMMON" },
 ];
 
-const SHORT: Record<string, string> = {
-  BS: "Boşnakça",
-  HR: "Hırvatça",
-  SR: "Sırpça",
-  CNR: "Karadağça",
-  COMMON: "ortak",
-};
+function oneLanguage(words: TickerWord[]) {
+  const seen = new Set<string>();
+  const out: TickerWord[] = [];
+  for (const word of words) {
+    const key = word.tr.toLocaleLowerCase("tr");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(word);
+  }
+  return out;
+}
 
 function Row({ words }: { words: TickerWord[] }) {
   return (
@@ -42,9 +45,6 @@ function Row({ words }: { words: TickerWord[] }) {
         >
           <span className="word-ticker__tr">{word.tr}</span>
           <span className="word-ticker__target">{word.target}</span>
-          <span className="word-ticker__tag">
-            {SHORT[word.variant] || word.variant}
-          </span>
         </Link>
       ))}
     </>
@@ -60,8 +60,9 @@ export function WordTicker() {
     void api
       .ticker()
       .then((res) => {
-        if (cancelled || res.words.length < 8) return;
-        setWords(res.words);
+        const words = oneLanguage(res.words);
+        if (cancelled || words.length < 8) return;
+        setWords(words);
         setSource(res.source);
       })
       .catch(() => undefined);

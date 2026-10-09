@@ -22,7 +22,6 @@ const SEED: TickerWord[] = [
   { tr: 'hayır', target: 'ne', variant: 'COMMON' },
   { tr: 'su', target: 'voda', variant: 'COMMON' },
   { tr: 'ekmek', target: 'hljeb', variant: 'BS' },
-  { tr: 'ekmek', target: 'kruh', variant: 'HR' },
   { tr: 'süt', target: 'mlijeko', variant: 'BS' },
   { tr: 'ev', target: 'kuća', variant: 'COMMON' },
   { tr: 'okul', target: 'škola', variant: 'COMMON' },
@@ -53,12 +52,12 @@ function parseWords(raw: string): TickerWord[] {
   for (const item of data.words || []) {
     const tr = item.tr?.replace(/\s+/g, ' ').trim().slice(0, 40);
     const target = item.target?.replace(/\s+/g, ' ').trim().slice(0, 40);
-    const variant = (item.variant || 'COMMON').toUpperCase();
+    const variant = (item.variant || 'BS').toUpperCase();
     if (!tr || !target || !VARIANTS.has(variant)) continue;
-    const key = `${tr.toLocaleLowerCase('tr')}::${target.toLocaleLowerCase('tr')}`;
+    const key = tr.toLocaleLowerCase('tr');
     if (seen.has(key)) continue;
     seen.add(key);
-    words.push({ tr, target, variant });
+    words.push({ tr, target, variant: 'BS' });
   }
   return words;
 }
@@ -98,11 +97,11 @@ export class TickerService {
       const raw = await this.ai.completePrompt(
         [
           'Türkçe konuşan öğrenciler için günlük kelime şeridi hazırla.',
-          '24 kısa kelime veya kalıp üret. Boşnakça (BS), Hırvatça (HR), Sırpça (SR) ve Karadağca (CNR) karışık olsun.',
-          'Aynı anlamın varyantı farklıysa ayrı satır yaz (ör. ekmek/hljeb BS, ekmek/kruh HR).',
+          '24 kısa kelime veya kalıp üret. Yalnızca Boşnakça yaz.',
+          'Her Türkçe kelime bir kez geçsin. Hırvatça, Sırpça veya Karadağca karşılık ekleme.',
           'Sadece JSON döndür, markdown yok.',
           'Şema: {"words":[{"tr":"merhaba","target":"zdravo","variant":"BS"}]}',
-          'variant yalnızca BS, HR, SR veya CNR. Tekrar etme. Cümle yazma.',
+          'variant her satırda BS. Tekrar etme. Cümle yazma.',
         ].join('\n'),
       );
       const words = parseWords(raw).slice(0, 28);
