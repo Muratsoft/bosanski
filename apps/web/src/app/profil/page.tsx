@@ -87,7 +87,7 @@ function ProfileInner({
               <Link key={g.id} href={`/gruplar/${g.slug}`} className="list-row">
                 <div>
                   <strong>{g.name}</strong>
-                  <div className="muted">{g.periodLabel || g.level}</div>
+                  <div className="muted">{g.periodLabel || "Grup"}</div>
                 </div>
                 <span className="badge">Aç</span>
               </Link>
