@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Fraunces } from "next/font/google";
 import { AuthProvider } from "@/lib/auth";
 import { SiteHeader } from "@/components/SiteHeader";
+import { MemberAlerts } from "@/components/MemberAlerts";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -33,6 +34,7 @@ export default function RootLayout({
         <AuthProvider>
           <div className="site-shell">
             <SiteHeader />
+            <MemberAlerts />
             <main className="main">{children}</main>
           </div>
         </AuthProvider>

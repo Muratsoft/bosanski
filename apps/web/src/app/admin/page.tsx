@@ -54,6 +54,19 @@ export default function AdminPage() {
   const [matBody, setMatBody] = useState("");
   const [matUrl, setMatUrl] = useState("");
   const [memberEmail, setMemberEmail] = useState("");
+  const [hwTitle, setHwTitle] = useState("");
+  const [hwDesc, setHwDesc] = useState("");
+  const [hwUrl, setHwUrl] = useState("");
+  const [hwDue, setHwDue] = useState("");
+  const [selfTests, setSelfTests] = useState<
+    {
+      id: string;
+      score: number;
+      total: number;
+      summary: string;
+      student: { displayName: string; email: string };
+    }[]
+  >([]);
 
   useEffect(() => {
     if (!loading && (!user || !isStaff)) {
@@ -63,7 +76,7 @@ export default function AdminPage() {
 
   async function refresh() {
     if (!accessToken) return;
-    const [dash, userList, cats, reportList, pays, groupList] =
+    const [dash, userList, cats, reportList, pays, groupList, selfTestsList] =
       await Promise.all([
         api.adminDashboard(accessToken),
         api.adminUsers(accessToken),
@@ -73,6 +86,7 @@ export default function AdminPage() {
           ? api.pendingPayments(accessToken).catch(() => [] as PendingPayment[])
           : Promise.resolve([] as PendingPayment[]),
         api.myGroups(accessToken).catch(() => [] as ClassGroupSummary[]),
+        api.selfTestInbox(accessToken).catch(() => []),
       ]);
     setStats(dash.users);
     setUsers(userList.items);
@@ -80,6 +94,7 @@ export default function AdminPage() {
     setReports(reportList);
     setPendingPays(pays);
     setGroups(groupList);
+    setSelfTests(selfTestsList);
     if (!lessonCategoryId && cats[0]) {
       setLessonCategoryId(cats[0].id);
     }
@@ -694,6 +709,108 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
+
+          <hr style={{ border: 0, borderTop: "1px solid var(--line)" }} />
+          <h3 style={{ fontFamily: "var(--font-display)", marginBottom: 0 }}>
+            Ödev ver
+          </h3>
+          <form
+            className="stack"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!accessToken || !selectedGroupId) return;
+              void api
+                .createHomework(accessToken, {
+                  groupId: selectedGroupId,
+                  title: hwTitle,
+                  description: hwDesc || undefined,
+                  attachmentUrl: hwUrl || undefined,
+                  attachmentName: hwUrl ? "Ödev dosyası" : undefined,
+                  dueAt: hwDue ? new Date(hwDue).toISOString() : undefined,
+                })
+                .then(async () => {
+                  setMessage("Ödev oluşturuldu");
+                  setHwTitle("");
+                  setHwDesc("");
+                  setHwUrl("");
+                  setHwDue("");
+                  await refresh();
+                })
+                .catch((err) =>
+                  setError(err instanceof Error ? err.message : "Ödev eklenemedi"),
+                );
+            }}
+          >
+            <div className="field">
+              <label>Grup</label>
+              <select
+                value={selectedGroupId}
+                onChange={(e) => setSelectedGroupId(e.target.value)}
+              >
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Ödev başlığı</label>
+              <input
+                value={hwTitle}
+                onChange={(e) => setHwTitle(e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label>Açıklama</label>
+              <textarea
+                rows={2}
+                value={hwDesc}
+                onChange={(e) => setHwDesc(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label>Dosya / Drive linki</label>
+              <input
+                value={hwUrl}
+                onChange={(e) => setHwUrl(e.target.value)}
+                placeholder="https://drive.google.com/..."
+              />
+            </div>
+            <div className="field">
+              <label>Son tarih</label>
+              <input
+                type="datetime-local"
+                value={hwDue}
+                onChange={(e) => setHwDue(e.target.value)}
+              />
+            </div>
+            <button className="btn btn--solid" type="submit">
+              Ödev yayınla
+            </button>
+          </form>
+
+          <h3 style={{ fontFamily: "var(--font-display)" }}>
+            Kendini sına sonuçları
+          </h3>
+          {selfTests.map((t) => (
+            <div key={t.id} className="list-row">
+              <div>
+                <strong>
+                  {t.student.displayName} · {t.score}/{t.total}
+                </strong>
+                <div className="muted">{t.student.email}</div>
+                <div style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>
+                  {t.summary.slice(0, 280)}
+                  {t.summary.length > 280 ? "…" : ""}
+                </div>
+              </div>
+            </div>
+          ))}
+          {selfTests.length === 0 && (
+            <p className="muted">Henüz test sonucu yok.</p>
+          )}
         </section>
       </div>
     </>

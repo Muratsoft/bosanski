@@ -82,9 +82,13 @@ model User {
   aiConversations   AiConversation[]
   aiUsageDays       AiUsageDay[]
   gameScores        GameScore[]
-  taughtGroups      ClassGroup[]         @relation("GroupTeacher")
-  groupMemberships  ClassGroupMember[]
-  groupMaterials    GroupMaterial[]      @relation("MaterialAuthor")
+  taughtGroups       ClassGroup[]         @relation("GroupTeacher")
+  groupMemberships   ClassGroupMember[]
+  groupMaterials     GroupMaterial[]      @relation("MaterialAuthor")
+  homeworksCreated   Homework[]           @relation("HomeworkAuthor")
+  homeworkSubmissions HomeworkSubmission[]
+  selfTestResults    SelfTestResult[]     @relation("SelfTestStudent")
+  selfTestsReceived  SelfTestResult[]     @relation("SelfTestTeacher")
 
   @@index([role])
   @@index([status])
@@ -290,6 +294,8 @@ model CalendarEvent {
   published    Boolean              @default(true)
   teacherId    String?
   teacher      User?                @relation("EventTeacher", fields: [teacherId], references: [id])
+  groupId      String?
+  group        ClassGroup?          @relation(fields: [groupId], references: [id], onDelete: SetNull)
   enrollments  CalendarEnrollment[]
   reminders    ReminderLog[]
   createdAt    DateTime             @default(now())
@@ -298,6 +304,7 @@ model CalendarEvent {
   @@index([startAt])
   @@index([published])
   @@index([teacherId])
+  @@index([groupId])
 }
 
 model CalendarEnrollment {
@@ -514,6 +521,8 @@ model ClassGroup {
   teacher     User?              @relation("GroupTeacher", fields: [teacherId], references: [id])
   members     ClassGroupMember[]
   materials   GroupMaterial[]
+  homeworks   Homework[]
+  events      CalendarEvent[]
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
@@ -523,12 +532,13 @@ model ClassGroup {
 }
 
 model ClassGroupMember {
-  id       String     @id @default(cuid())
-  groupId  String
-  group    ClassGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  userId   String
-  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  joinedAt DateTime   @default(now())
+  id          String     @id @default(cuid())
+  groupId     String
+  group       ClassGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt    DateTime   @default(now())
+  completedAt DateTime?
 
   @@unique([groupId, userId])
   @@index([userId])
@@ -554,4 +564,60 @@ model GroupMaterial {
   @@index([groupId])
   @@index([type])
   @@index([sortOrder])
+}
+
+model Homework {
+  id             String               @id @default(cuid())
+  groupId        String
+  group          ClassGroup           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  /// Drive / Dropbox / PDF linki
+  attachmentUrl  String?
+  attachmentName String?
+  dueAt          DateTime?
+  published      Boolean              @default(true)
+  authorId       String?
+  author         User?                @relation("HomeworkAuthor", fields: [authorId], references: [id])
+  submissions    HomeworkSubmission[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([groupId])
+  @@index([dueAt])
+}
+
+model HomeworkSubmission {
+  id          String    @id @default(cuid())
+  homeworkId  String
+  homework    Homework  @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  done        Boolean   @default(true)
+  note        String?
+  /// Öğrencinin yüklediği ödev linki (Drive vb.)
+  fileUrl     String?
+  completedAt DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+
+  @@unique([homeworkId, userId])
+  @@index([userId])
+}
+
+model SelfTestResult {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     User     @relation("SelfTestStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  teacherId   String?
+  teacher     User?    @relation("SelfTestTeacher", fields: [teacherId], references: [id])
+  level       String   @default("A1")
+  score       Int
+  total       Int
+  summary     String
+  detailJson  String?
+  createdAt   DateTime @default(now())
+
+  @@index([studentId])
+  @@index([teacherId])
+  @@index([createdAt])
 }

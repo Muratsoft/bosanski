@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { api, type CalendarEvent } from "@/lib/api";
 
@@ -25,25 +26,27 @@ function formatRange(startIso: string, endIso: string) {
 }
 
 export default function CalendarPage() {
-  const { user, accessToken, isStaff } = useAuth();
+  const { user, accessToken, isStaff, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [mine, setMine] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    if (!authLoading && !user) router.replace("/giris");
+  }, [authLoading, user, router]);
+
   async function load() {
+    if (!accessToken) return;
     setLoading(true);
     setError("");
     try {
-      const list = await api.calendarEvents();
+      const list = await api.calendarEvents(accessToken);
       setEvents(list);
-      if (accessToken) {
-        const enrolled = await api.myCalendar(accessToken);
-        setMine(enrolled.map((e) => e.event.id));
-      } else {
-        setMine([]);
-      }
+      const enrolled = await api.myCalendar(accessToken);
+      setMine(enrolled.map((e) => e.event.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Takvim yüklenemedi");
     } finally {
@@ -57,13 +60,10 @@ export default function CalendarPage() {
   }, [accessToken]);
 
   async function enroll(id: string) {
-    if (!accessToken) {
-      window.location.href = "/giris";
-      return;
-    }
+    if (!accessToken) return;
     try {
       await api.enrollEvent(accessToken, id);
-      setMessage("Derse kaydoldun. Hatırlatma maili (24s / 1s) otomatik gidecek.");
+      setMessage("Derse kaydoldun.");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kayıt başarısız");
@@ -77,23 +77,26 @@ export default function CalendarPage() {
     await load();
   }
 
+  if (authLoading || !user) return <p className="muted">Yükleniyor…</p>;
+
   return (
     <>
       <h1 className="section-title">Ders takvimi</h1>
       <p className="section-lead">
-        Canlı dersler Google Meet ile. Kayıt olanlara 24 saat ve 1 saat kala
-        hatırlatma maili gider.
+        Senin grupların ve kayıtların. Canlı dersler Google Meet ile.
       </p>
 
       {isStaff && (
         <p className="muted" style={{ marginBottom: "1rem" }}>
-          Öğretmen / admin yeni ders eklemek için <Link href="/admin">Admin</Link>{" "}
-          panelini kullan.
+          Yeni ders için <Link href="/admin">Admin</Link>.
         </p>
       )}
 
       {message && (
-        <div className="panel" style={{ marginBottom: "1rem", background: "rgba(15,92,87,.08)" }}>
+        <div
+          className="panel"
+          style={{ marginBottom: "1rem", background: "rgba(15,92,87,.08)" }}
+        >
           {message}
         </div>
       )}
@@ -102,67 +105,57 @@ export default function CalendarPage() {
       {loading ? (
         <p className="muted">Yükleniyor…</p>
       ) : (
-        <div className="calendar-list">
+        <div className="panel">
           {events.map((ev) => {
-            const isEnrolled = mine.includes(ev.id);
+            const enrolled = mine.includes(ev.id);
             return (
-              <article key={ev.id} className="panel calendar-card">
-                <div className="calendar-card__top">
-                  <div>
-                    <span className="badge">{ev.level || "A1"}</span>
-                    <h2 className="calendar-card__title">{ev.title}</h2>
-                    <p className="muted" style={{ margin: "0.35rem 0" }}>
-                      {formatRange(ev.startAt, ev.endAt)}
-                    </p>
-                    {ev.teacher && (
-                      <p className="muted" style={{ margin: 0 }}>
-                        Eğitmen: {ev.teacher.displayName}
-                      </p>
-                    )}
+              <div key={ev.id} className="list-row">
+                <div>
+                  <strong>{ev.title}</strong>
+                  <div className="muted">
+                    {formatRange(ev.startAt, ev.endAt)}
+                    {ev.level ? ` · ${ev.level}` : ""}
                   </div>
-                  <div className="calendar-card__cap muted">
-                    {ev._count?.enrollments ?? 0}/{ev.capacity}
-                  </div>
+                  {ev.description && (
+                    <div className="muted" style={{ marginTop: 4 }}>
+                      {ev.description}
+                    </div>
+                  )}
+                  {ev.meetUrl && (
+                    <div style={{ marginTop: 6 }}>
+                      <a href={ev.meetUrl} target="_blank" rel="noreferrer">
+                        Meet linki
+                      </a>
+                    </div>
+                  )}
                 </div>
-                {ev.description && (
-                  <p className="calendar-card__desc">{ev.description}</p>
-                )}
-                <div className="calendar-card__actions">
-                  {isEnrolled ? (
-                    <>
-                      {ev.meetUrl && (
-                        <a
-                          className="btn btn--clay"
-                          href={ev.meetUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Meet’e gir
-                        </a>
-                      )}
-                      <button
-                        type="button"
-                        className="btn btn--ghost"
-                        onClick={() => void unenroll(ev.id)}
-                      >
-                        İptal
-                      </button>
-                    </>
+                <div className="stack">
+                  {enrolled ? (
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      onClick={() => void unenroll(ev.id)}
+                    >
+                      İptal
+                    </button>
                   ) : (
                     <button
                       type="button"
                       className="btn btn--solid"
                       onClick={() => void enroll(ev.id)}
                     >
-                      {user ? "Kaydol" : "Giriş yapıp kaydol"}
+                      Kaydol
                     </button>
                   )}
                 </div>
-              </article>
+              </div>
             );
           })}
           {events.length === 0 && (
-            <p className="muted">Yaklaşan canlı ders yok.</p>
+            <p className="muted">
+              Grubuna ait yaklaşan ders yok. Öğretmen takvime ekleyince burada
+              görünür.
+            </p>
           )}
         </div>
       )}

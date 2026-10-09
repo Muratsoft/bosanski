@@ -18,17 +18,41 @@ export class CalendarService {
     private readonly mail: MailService,
   ) {}
 
-  listUpcoming(params?: { take?: number; from?: Date }) {
+  async listUpcoming(params?: {
+    take?: number;
+    from?: Date;
+    userId?: string;
+    role?: string;
+  }) {
     const from = params?.from ?? new Date();
+    const staff = ['SUPER_ADMIN', 'MODERATOR', 'TEACHER'].includes(
+      params?.role || '',
+    );
+
+    const where: {
+      published: boolean;
+      startAt: { gte: Date };
+      OR?: object[];
+    } = {
+      published: true,
+      startAt: { gte: from },
+    };
+
+    if (params?.userId && !staff) {
+      where.OR = [
+        { enrollments: { some: { userId: params.userId } } },
+        { group: { members: { some: { userId: params.userId } } } },
+        { groupId: null },
+      ];
+    }
+
     return this.prisma.calendarEvent.findMany({
-      where: {
-        published: true,
-        startAt: { gte: from },
-      },
+      where,
       orderBy: { startAt: 'asc' },
       take: Math.min(params?.take ?? 50, 100),
       include: {
         teacher: { select: { id: true, displayName: true } },
+        group: { select: { id: true, name: true, slug: true } },
         _count: { select: { enrollments: true } },
       },
     });
@@ -81,6 +105,7 @@ export class CalendarService {
         capacity: dto.capacity ?? 20,
         published: dto.published ?? true,
         teacherId,
+        groupId: dto.groupId || null,
       },
       include: {
         teacher: { select: { id: true, displayName: true } },

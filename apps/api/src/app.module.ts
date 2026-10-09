@@ -16,6 +16,9 @@ import { PaymentsModule } from './payments/payments.module.js';
 import { AiModule } from './ai/ai.module.js';
 import { GamesModule } from './games/games.module.js';
 import { GroupsModule } from './groups/groups.module.js';
+import { MeModule } from './me/me.module.js';
+import { HomeworkModule } from './homework/homework.module.js';
+import { SelfTestModule } from './self-test/self-test.module.js';
 import { ScheduleModule } from '@nestjs/schedule';
 import { HealthController } from './health.controller.js';
 import { AppController } from './app.controller.js';
@@ -46,6 +49,9 @@ import { RolesGuard } from './common/guards/roles.guard.js';
     AiModule,
     GamesModule,
     GroupsModule,
+    MeModule,
+    HomeworkModule,
+    SelfTestModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

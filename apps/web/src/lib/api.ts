@@ -266,7 +266,8 @@ export const api = {
     }),
   adminCategories: (token: string) =>
     request<Category[]>("/admin/categories", { token }),
-  calendarEvents: () => request<CalendarEvent[]>("/calendar/events"),
+  calendarEvents: (token: string) =>
+    request<CalendarEvent[]>("/calendar/events", { token }),
   calendarEvent: (id: string, token?: string | null) =>
     request<CalendarEvent & { enrolled?: boolean }>(`/calendar/events/${id}`, {
       token,
@@ -432,6 +433,61 @@ export const api = {
       method: "DELETE",
       token,
     }),
+  meDashboard: (token: string) =>
+    request<MemberDashboard>("/me/dashboard", { token }),
+  createHomework: (
+    token: string,
+    body: {
+      groupId: string;
+      title: string;
+      description?: string;
+      attachmentUrl?: string;
+      attachmentName?: string;
+      dueAt?: string;
+    },
+  ) => request("/homework", { method: "POST", token, body }),
+  groupHomeworks: (token: string, groupId: string) =>
+    request<HomeworkItem[]>(`/homework/group/${groupId}`, { token }),
+  homeworkInbox: (token: string) =>
+    request<HomeworkItem[]>("/homework/inbox", { token }),
+  submitHomework: (
+    token: string,
+    id: string,
+    body: { done?: boolean; note?: string; fileUrl?: string },
+  ) =>
+    request(`/homework/${id}/submit`, { method: "POST", token, body }),
+  selfTestStart: (token: string, level?: string) =>
+    request<{
+      level: string;
+      source: string;
+      questions: Omit<QuizQuestion, "answer">[];
+      answerKey: { id: string; answer: string }[];
+    }>("/self-test/start", { method: "POST", token, body: { level } }),
+  selfTestSubmit: (
+    token: string,
+    body: {
+      level?: string;
+      answers: { id: string; chosen: string; correctAnswer: string }[];
+    },
+  ) =>
+    request<{
+      score: number;
+      total: number;
+      summary: string;
+      teacher?: { displayName: string } | null;
+    }>("/self-test/submit", { method: "POST", token, body }),
+  selfTestInbox: (token: string) =>
+    request<
+      {
+        id: string;
+        score: number;
+        total: number;
+        summary: string;
+        level: string;
+        createdAt: string;
+        student: { displayName: string; email: string };
+      }[]
+    >("/self-test/inbox", { token }),
   saveGameScore: (
     token: string,
     body: {
@@ -607,4 +663,57 @@ export type ClassGroupDetail = ClassGroupSummary & {
   isMember?: boolean;
   canManage?: boolean;
   locked?: boolean;
+};
+
+export type HomeworkItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  attachmentUrl: string | null;
+  attachmentName: string | null;
+  dueAt: string | null;
+  group?: { name: string; slug: string };
+  mySubmission?: {
+    done: boolean;
+    note: string | null;
+    fileUrl: string | null;
+  } | null;
+  submissions?: {
+    done: boolean;
+    fileUrl: string | null;
+    user: { displayName: string; email: string };
+  }[];
+};
+
+export type MemberDashboard = {
+  user: SafeUser;
+  subscription: Subscription | null;
+  groups: {
+    id: string;
+    name: string;
+    slug: string;
+    periodLabel: string | null;
+    completedAt: string | null;
+  }[];
+  lessonsAttended: number;
+  nextLesson: CalendarEvent | null;
+  pendingHomeworks: HomeworkItem[];
+  upcomingPayment: Payment | null;
+  completedCourses: { id: string; name: string; slug: string }[];
+  alerts: {
+    nextLesson: {
+      title: string;
+      startAt: string;
+      meetUrl: string | null;
+      groupName?: string;
+    } | null;
+    pendingHomeworkCount: number;
+    pendingHomeworks: {
+      id: string;
+      title: string;
+      dueAt: string | null;
+      groupName: string;
+      groupSlug: string;
+    }[];
+  };
 };

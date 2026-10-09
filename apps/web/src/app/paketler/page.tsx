@@ -24,6 +24,12 @@ export default function PlansPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
+  const isActiveMember = Boolean(
+    user &&
+      (user.status === "ACTIVE" ||
+        sub?.status === "ACTIVE"),
+  );
+
   async function load() {
     setLoading(true);
     setError("");
@@ -83,6 +89,18 @@ export default function PlansPage() {
   }
 
   const pendingPayment = sub?.payments?.find((p) => p.status === "PENDING");
+
+  if (isActiveMember && !pendingPayment) {
+    return (
+      <>
+        <h1 className="section-title">Paketler</h1>
+        <p className="section-lead">
+          Zaten aktif üyeliğin var. Detaylar için{" "}
+          <Link href="/profil">profiline</Link> bak.
+        </p>
+      </>
+    );
+  }
 
   return (
     <>

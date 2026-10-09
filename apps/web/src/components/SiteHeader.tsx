@@ -4,21 +4,27 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 
-const links = [
-  { href: "/", label: "Gündem" },
-  { href: "/takvim", label: "Takvim" },
-  { href: "/paketler", label: "Paketler" },
-  { href: "/zeka", label: "YZ" },
-  { href: "/oyunlar", label: "Oyunlar" },
-  { href: "/sozluk", label: "Sözlük" },
-  { href: "/dersler", label: "Dersler" },
-  { href: "/gruplar", label: "Gruplar" },
-  { href: "/ara", label: "Ara" },
-];
-
 export function SiteHeader() {
   const pathname = usePathname();
   const { user, logout, isStaff, loading } = useAuth();
+
+  const links = [
+    { href: "/", label: "Gündem", show: true },
+    { href: "/takvim", label: "Takvim", show: Boolean(user) },
+    {
+      href: "/paketler",
+      label: "Paketler",
+      show: !user,
+    },
+    { href: "/zeka", label: "YZ", show: Boolean(user) },
+    { href: "/kendini-sina", label: "Kendini sına", show: Boolean(user) },
+    { href: "/oyunlar", label: "Oyunlar", show: true },
+    { href: "/sozluk", label: "Sözlük", show: true },
+    { href: "/dersler", label: "Dersler", show: true },
+    { href: "/gruplar", label: "Grubum", show: Boolean(user) },
+    { href: "/profil", label: "Profil", show: Boolean(user) },
+    { href: "/ara", label: "Ara", show: true },
+  ].filter((l) => l.show);
 
   return (
     <header className="site-header">
@@ -31,7 +37,13 @@ export function SiteHeader() {
             <Link
               key={l.href}
               href={l.href}
-              className={pathname.startsWith(l.href) ? "nav__link is-active" : "nav__link"}
+              className={
+                pathname.startsWith(l.href) && l.href !== "/"
+                  ? "nav__link is-active"
+                  : pathname === l.href
+                    ? "nav__link is-active"
+                    : "nav__link"
+              }
             >
               {l.label}
             </Link>
@@ -39,7 +51,9 @@ export function SiteHeader() {
           {isStaff && (
             <Link
               href="/admin"
-              className={pathname.startsWith("/admin") ? "nav__link is-active" : "nav__link"}
+              className={
+                pathname.startsWith("/admin") ? "nav__link is-active" : "nav__link"
+              }
             >
               Admin
             </Link>
@@ -48,7 +62,9 @@ export function SiteHeader() {
         <div className="site-header__actions">
           {loading ? null : user ? (
             <>
-              <span className="user-chip">{user.displayName}</span>
+              <Link href="/profil" className="user-chip">
+                {user.displayName}
+              </Link>
               <button type="button" className="btn btn--ghost" onClick={logout}>
                 Çıkış
               </button>

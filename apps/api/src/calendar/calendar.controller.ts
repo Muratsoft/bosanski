@@ -23,11 +23,15 @@ import { UpdateEventDto } from './dto/update-event.dto.js';
 export class CalendarController {
   constructor(private readonly calendarService: CalendarService) {}
 
-  @Public()
   @Get('events')
-  listUpcoming(@Query('take') take?: string) {
+  listUpcoming(
+    @CurrentUser() user: AuthUser,
+    @Query('take') take?: string,
+  ) {
     return this.calendarService.listUpcoming({
       take: take ? Number(take) : 50,
+      userId: user.id,
+      role: user.role,
     });
   }
 

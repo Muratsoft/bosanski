@@ -49,4 +49,8 @@ export class CreateEventDto {
   @IsOptional()
   @IsBoolean()
   published?: boolean;
+
+  @IsOptional()
+  @IsString()
+  groupId?: string;
 }
