@@ -500,13 +500,15 @@ export default function AdminPage() {
             </button>
           </form>
           {user?.role === "SUPER_ADMIN" && (
-            <button
-              type="button"
-              className="btn btn--ghost"
-              onClick={() => void triggerReminders()}
-            >
-              Hatırlatmaları şimdi tara
-            </button>
+            <div>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => void triggerReminders()}
+              >
+                Hatırlatmaları şimdi tara
+              </button>
+            </div>
           )}
         </section>
 

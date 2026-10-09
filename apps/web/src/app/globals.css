@@ -159,11 +159,15 @@ select {
   padding: 0.7rem 1.15rem;
   cursor: pointer;
   transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
-  /* grid/flex içinde komşu alan kadar şişmesin */
+  /* grid/flex içinde komşu panel kadar şişmesin */
   align-self: start;
-  width: fit-content;
+  justify-self: start;
+  flex: 0 0 auto;
+  width: max-content;
   max-width: 100%;
+  height: auto;
   min-height: 0;
+  box-sizing: border-box;
 }
 
 .btn:hover {
@@ -286,14 +290,17 @@ select {
 }
 
 .stack {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.85rem;
-  align-content: start;
   align-items: stretch;
+  justify-content: flex-start;
 }
 
 .stack > .btn {
-  justify-self: start;
+  align-self: flex-start;
+  width: max-content;
+  height: auto;
 }
 
 .field {
