@@ -15,6 +15,7 @@ import { CalendarModule } from './calendar/calendar.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
 import { AiModule } from './ai/ai.module.js';
 import { GamesModule } from './games/games.module.js';
+import { GroupsModule } from './groups/groups.module.js';
 import { ScheduleModule } from '@nestjs/schedule';
 import { HealthController } from './health.controller.js';
 import { AppController } from './app.controller.js';
@@ -44,6 +45,7 @@ import { RolesGuard } from './common/guards/roles.guard.js';
     PaymentsModule,
     AiModule,
     GamesModule,
+    GroupsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

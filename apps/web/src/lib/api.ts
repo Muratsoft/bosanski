@@ -388,6 +388,50 @@ export const api = {
     request<LeaderboardRow[]>(
       `/games/leaderboard${gameType ? `?gameType=${gameType}` : ""}`,
     ),
+  groups: () => request<ClassGroupSummary[]>("/groups"),
+  myGroups: (token: string) =>
+    request<ClassGroupSummary[]>("/groups/mine", { token }),
+  group: (slug: string, token?: string | null) =>
+    request<ClassGroupDetail>(`/groups/${slug}`, {
+      token: token || undefined,
+    }),
+  createGroup: (
+    token: string,
+    body: {
+      name: string;
+      description?: string;
+      level?: string;
+      periodLabel?: string;
+      published?: boolean;
+    },
+  ) =>
+    request<ClassGroupSummary>("/groups", { method: "POST", token, body }),
+  addGroupMaterial: (
+    token: string,
+    groupId: string,
+    body: {
+      type: "NOTE" | "VIDEO" | "RECORDING" | "LINK" | "FILE";
+      title: string;
+      body?: string;
+      url?: string;
+    },
+  ) =>
+    request<GroupMaterial>(`/groups/${groupId}/materials`, {
+      method: "POST",
+      token,
+      body,
+    }),
+  addGroupMember: (token: string, groupId: string, email: string) =>
+    request(`/groups/${groupId}/members`, {
+      method: "POST",
+      token,
+      body: { email },
+    }),
+  removeGroupMaterial: (token: string, materialId: string) =>
+    request(`/groups/materials/${materialId}`, {
+      method: "DELETE",
+      token,
+    }),
   saveGameScore: (
     token: string,
     body: {
@@ -529,4 +573,38 @@ export type LeaderboardRow = {
   percent: number;
   durationSec: number;
   user: { id: string; displayName: string };
+};
+
+export type ClassGroupSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  level: string;
+  periodLabel: string | null;
+  published: boolean;
+  teacher?: { id: string; displayName: string } | null;
+  _count?: { members: number; materials: number };
+};
+
+export type GroupMaterial = {
+  id: string;
+  type: "NOTE" | "VIDEO" | "RECORDING" | "LINK" | "FILE";
+  title: string;
+  body: string | null;
+  url: string | null;
+  sortOrder: number;
+  published: boolean;
+  createdAt: string;
+};
+
+export type ClassGroupDetail = ClassGroupSummary & {
+  materials: GroupMaterial[];
+  members?: {
+    id: string;
+    user: { id: string; displayName: string; email: string };
+  }[];
+  isMember?: boolean;
+  canManage?: boolean;
+  locked?: boolean;
 };

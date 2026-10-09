@@ -3,7 +3,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { api, type Category, type PendingPayment, type SafeUser } from "@/lib/api";
+import {
+  api,
+  type Category,
+  type ClassGroupSummary,
+  type PendingPayment,
+  type SafeUser,
+} from "@/lib/api";
 
 type ReportItem = Awaited<ReturnType<typeof api.forumReports>>[number];
 
@@ -36,6 +42,18 @@ export default function AdminPage() {
   const [liveEnd, setLiveEnd] = useState("");
   const [liveMeet, setLiveMeet] = useState("https://meet.google.com/");
   const [liveDesc, setLiveDesc] = useState("");
+  const [groups, setGroups] = useState<ClassGroupSummary[]>([]);
+  const [groupName, setGroupName] = useState("");
+  const [groupPeriod, setGroupPeriod] = useState("");
+  const [groupDesc, setGroupDesc] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [matType, setMatType] = useState<
+    "NOTE" | "VIDEO" | "RECORDING" | "LINK"
+  >("NOTE");
+  const [matTitle, setMatTitle] = useState("");
+  const [matBody, setMatBody] = useState("");
+  const [matUrl, setMatUrl] = useState("");
+  const [memberEmail, setMemberEmail] = useState("");
 
   useEffect(() => {
     if (!loading && (!user || !isStaff)) {
@@ -45,22 +63,28 @@ export default function AdminPage() {
 
   async function refresh() {
     if (!accessToken) return;
-    const [dash, userList, cats, reportList, pays] = await Promise.all([
-      api.adminDashboard(accessToken),
-      api.adminUsers(accessToken),
-      api.adminCategories(accessToken),
-      api.forumReports(accessToken).catch(() => [] as ReportItem[]),
-      user?.role === "SUPER_ADMIN"
-        ? api.pendingPayments(accessToken).catch(() => [] as PendingPayment[])
-        : Promise.resolve([] as PendingPayment[]),
-    ]);
+    const [dash, userList, cats, reportList, pays, groupList] =
+      await Promise.all([
+        api.adminDashboard(accessToken),
+        api.adminUsers(accessToken),
+        api.adminCategories(accessToken),
+        api.forumReports(accessToken).catch(() => [] as ReportItem[]),
+        user?.role === "SUPER_ADMIN"
+          ? api.pendingPayments(accessToken).catch(() => [] as PendingPayment[])
+          : Promise.resolve([] as PendingPayment[]),
+        api.myGroups(accessToken).catch(() => [] as ClassGroupSummary[]),
+      ]);
     setStats(dash.users);
     setUsers(userList.items);
     setCategories(cats);
     setReports(reportList);
     setPendingPays(pays);
+    setGroups(groupList);
     if (!lessonCategoryId && cats[0]) {
       setLessonCategoryId(cats[0].id);
+    }
+    if (!selectedGroupId && groupList[0]) {
+      setSelectedGroupId(groupList[0].id);
     }
   }
 
@@ -468,6 +492,208 @@ export default function AdminPage() {
               Hatırlatmaları şimdi tara
             </button>
           )}
+        </section>
+
+        <section className="panel stack">
+          <h2 style={{ fontFamily: "var(--font-display)", marginTop: 0 }}>
+            Sınıf grupları
+          </h2>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Ekim / Eylül gibi dönem grupları; not, Meet ve kayıt linki ekle.
+          </p>
+          <form
+            className="stack"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!accessToken) return;
+              void api
+                .createGroup(accessToken, {
+                  name: groupName,
+                  periodLabel: groupPeriod || undefined,
+                  description: groupDesc || undefined,
+                  level: "A1",
+                })
+                .then(async () => {
+                  setMessage("Grup oluşturuldu");
+                  setGroupName("");
+                  setGroupPeriod("");
+                  setGroupDesc("");
+                  await refresh();
+                })
+                .catch((err) =>
+                  setError(
+                    err instanceof Error ? err.message : "Grup oluşturulamadı",
+                  ),
+                );
+            }}
+          >
+            <div className="field">
+              <label>Grup adı</label>
+              <input
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                placeholder="Ekim 2026 Grubu"
+                required
+              />
+            </div>
+            <div className="field">
+              <label>Dönem</label>
+              <input
+                value={groupPeriod}
+                onChange={(e) => setGroupPeriod(e.target.value)}
+                placeholder="Ekim 2026"
+              />
+            </div>
+            <div className="field">
+              <label>Açıklama</label>
+              <textarea
+                rows={2}
+                value={groupDesc}
+                onChange={(e) => setGroupDesc(e.target.value)}
+              />
+            </div>
+            <button className="btn btn--solid" type="submit">
+              Grup oluştur
+            </button>
+          </form>
+
+          <hr style={{ border: 0, borderTop: "1px solid var(--line)" }} />
+
+          <form
+            className="stack"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!accessToken || !selectedGroupId) return;
+              void api
+                .addGroupMaterial(accessToken, selectedGroupId, {
+                  type: matType,
+                  title: matTitle,
+                  body: matBody || undefined,
+                  url: matUrl || undefined,
+                })
+                .then(async () => {
+                  setMessage("Materyal eklendi");
+                  setMatTitle("");
+                  setMatBody("");
+                  setMatUrl("");
+                  await refresh();
+                })
+                .catch((err) =>
+                  setError(
+                    err instanceof Error ? err.message : "Materyal eklenemedi",
+                  ),
+                );
+            }}
+          >
+            <div className="field">
+              <label>Grup</label>
+              <select
+                value={selectedGroupId}
+                onChange={(e) => setSelectedGroupId(e.target.value)}
+                required
+              >
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Tür</label>
+              <select
+                value={matType}
+                onChange={(e) =>
+                  setMatType(
+                    e.target.value as "NOTE" | "VIDEO" | "RECORDING" | "LINK",
+                  )
+                }
+              >
+                <option value="NOTE">Ders notu</option>
+                <option value="VIDEO">Canlı / video linki</option>
+                <option value="RECORDING">Ders kaydı</option>
+                <option value="LINK">Genel link</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Başlık</label>
+              <input
+                value={matTitle}
+                onChange={(e) => setMatTitle(e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label>Not / açıklama</label>
+              <textarea
+                rows={3}
+                value={matBody}
+                onChange={(e) => setMatBody(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label>Link (Meet / YouTube / Drive)</label>
+              <input
+                value={matUrl}
+                onChange={(e) => setMatUrl(e.target.value)}
+                placeholder="https://"
+              />
+            </div>
+            <button className="btn btn--solid" type="submit">
+              Materyal ekle
+            </button>
+          </form>
+
+          <form
+            className="stack"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!accessToken || !selectedGroupId) return;
+              void api
+                .addGroupMember(accessToken, selectedGroupId, memberEmail)
+                .then(async () => {
+                  setMessage("Üye eklendi");
+                  setMemberEmail("");
+                  await refresh();
+                })
+                .catch((err) =>
+                  setError(
+                    err instanceof Error ? err.message : "Üye eklenemedi",
+                  ),
+                );
+            }}
+          >
+            <div className="field">
+              <label>Öğrenci e-postası (üyelik)</label>
+              <input
+                type="email"
+                value={memberEmail}
+                onChange={(e) => setMemberEmail(e.target.value)}
+                placeholder="ogrenci@mail.com"
+                required
+              />
+            </div>
+            <button className="btn btn--ghost" type="submit">
+              Gruba üye ekle
+            </button>
+          </form>
+
+          <div>
+            {groups.map((g) => (
+              <div key={g.id} className="list-row">
+                <div>
+                  <strong>{g.name}</strong>
+                  <div className="muted">
+                    {g.periodLabel || "—"} · {g._count?.materials ?? 0} materyal
+                    · {g._count?.members ?? 0} üye
+                  </div>
+                </div>
+                <a className="btn btn--ghost" href={`/gruplar/${g.slug}`}>
+                  Aç
+                </a>
+              </div>
+            ))}
+          </div>
         </section>
       </div>
     </>

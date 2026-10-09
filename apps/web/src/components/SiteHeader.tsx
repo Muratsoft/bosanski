@@ -12,6 +12,7 @@ const links = [
   { href: "/oyunlar", label: "Oyunlar" },
   { href: "/sozluk", label: "Sözlük" },
   { href: "/dersler", label: "Dersler" },
+  { href: "/gruplar", label: "Gruplar" },
   { href: "/ara", label: "Ara" },
 ];
 

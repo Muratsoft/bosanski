@@ -293,8 +293,80 @@ Boşnakça’da en sık kullanılan selamlar:
     });
   }
 
+  const ekim = await prisma.classGroup.upsert({
+    where: { slug: 'ekim-2026' },
+    update: {},
+    create: {
+      name: 'Ekim 2026 Grubu',
+      slug: 'ekim-2026',
+      description: 'Ekim döneminde başlayan canlı sınıf grubu',
+      level: 'A1',
+      periodLabel: 'Ekim 2026',
+      published: true,
+      teacherId: admin.id,
+    },
+  });
+
+  const eylul = await prisma.classGroup.upsert({
+    where: { slug: 'eylul-2026' },
+    update: {},
+    create: {
+      name: 'Eylül 2026 Grubu',
+      slug: 'eylul-2026',
+      description: 'Eylül döneminde başlayan canlı sınıf grubu',
+      level: 'A1',
+      periodLabel: 'Eylül 2026',
+      published: true,
+      teacherId: admin.id,
+    },
+  });
+
+  const materialCount = await prisma.groupMaterial.count({
+    where: { groupId: ekim.id },
+  });
+  if (materialCount === 0) {
+    await prisma.groupMaterial.createMany({
+      data: [
+        {
+          groupId: ekim.id,
+          type: 'NOTE',
+          title: '1. Hafta ders notu — Selamlaşma',
+          body: 'Zdravo / Dobar dan. Ödev: 5 selamlaşma cümlesi yaz.',
+          sortOrder: 1,
+          authorId: admin.id,
+        },
+        {
+          groupId: ekim.id,
+          type: 'VIDEO',
+          title: 'Canlı ders — Google Meet',
+          url: 'https://meet.google.com/bos-anski-demo',
+          body: 'Salı 20:00',
+          sortOrder: 2,
+          authorId: admin.id,
+        },
+        {
+          groupId: ekim.id,
+          type: 'RECORDING',
+          title: 'Kayıt — 1. ders',
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          body: 'Derse gelemeyenler için kayıt linki',
+          sortOrder: 3,
+          authorId: admin.id,
+        },
+        {
+          groupId: eylul.id,
+          type: 'NOTE',
+          title: 'Eylül grubu — genel duyuru',
+          body: 'WhatsApp grubu ve ders saatleri pinlenmiştir.',
+          sortOrder: 1,
+          authorId: admin.id,
+        },
+      ],
+    });
+  }
+
   console.log(
-    'Seed: kategoriler, dersler, sözlük, forum, takvim ve paketler eklendi',
+    'Seed: kategoriler, dersler, sözlük, forum, takvim, paketler ve gruplar eklendi',
   );
 }
 
